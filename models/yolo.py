@@ -65,14 +65,16 @@ class Detect(nn.Module):
 
                 y = x[i].sigmoid()
                 if self.inplace:
-                    y[..., 0:2] = (y[..., 0:2] * 2 + self.grid[i]) * self.stride[i]  # xy
-                    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                    tmp_02 = (y[..., 0:2] * 2 + self.grid[i]) * self.stride[i]  # xy
+                    tmp_24 = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                    tmp = torch.cat([tmp_02, tmp_24, y[..., 4:y.shape[-1]]], -1)
+                    z.append(tmp.view(bs, -1, self.no))
                 else:  # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
                     xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch 1.8.0
                     xy = (xy * 2 + self.grid[i]) * self.stride[i]  # xy
                     wh = (wh * 2) ** 2 * self.anchor_grid[i]  # wh
                     y = torch.cat((xy, wh, conf), 4)
-                z.append(y.view(bs, -1, self.no))
+                    z.append(y.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x)
 
